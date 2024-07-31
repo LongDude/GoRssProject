@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/LongDude/GoRssProject/db"
 	"github.com/go-chi/chi"
@@ -36,9 +37,12 @@ func main() {
 		log.Fatal("Cant connect to DB:", err)
 	}
 
+  db := db.New(conn)
 	apiCfg := apiConfig{
-		DB: db.New(conn),
+		DB: db,
 	}
+
+  go startScraping(db, 10, time.Minute)
 
 	router := chi.NewRouter()
 
@@ -65,7 +69,8 @@ func main() {
   v1Router.Post("/feed_follow", apiCfg.middlewareAuth(apiCfg.handlerCreateFeedFollow))
   v1Router.Get("/feed_follow", apiCfg.middlewareAuth(apiCfg.handlerGetFeedFollows))
   v1Router.Delete("/feed_follow/{feelFollowID}", apiCfg.middlewareAuth(apiCfg.handlerDeleteFeedFollow))
-
+  // Посты
+  v1Router.Get("/posts", apiCfg.middlewareAuth(apiCfg.handlerGetPostsByUser))
   // Присоединяем его как подмаршрут к основному
 	// То есть после /v1 все пути обрабатывает v1Router
 	router.Mount("/v1", v1Router)
@@ -76,6 +81,7 @@ func main() {
 	}
 
 	log.Printf("Server staring on port %v", portString)
+
 	err = srv.ListenAndServe()
 
 	// Произошла ошибка регистрации сервера
